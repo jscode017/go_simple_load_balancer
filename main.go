@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	lb := NewLoadBalancer()
+	lb := NewLoadBalancer([]string{"localhost:8081", "localhost:8082"})
 	go lb.Run()
 	r1 := gin.Default()
 	r2 := gin.Default()

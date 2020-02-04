@@ -2,24 +2,25 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"log"
+	"math"
 	"net"
-)
-
-var (
-	seed int
+	"sync"
 )
 
 type LoadBalancer struct {
-	ServersIp []string
+	ServerIps []string
 	Address   string
+	Seed      uint32
+	sync.RWMutex
 }
 
-func NewLoadBalancer() *LoadBalancer {
-	serversIp := []string{"localhost:8081", "localhost:8082"}
+func NewLoadBalancer(serverIPs []string) *LoadBalancer {
+	//serversIp := []string{"localhost:8081", "localhost:8082"}
 	return &LoadBalancer{
-		ServersIp: serversIp,
+		ServersIp: serverIPs,
 		Address:   "localhost:8085",
 	}
 }
@@ -36,20 +37,27 @@ func (lb *LoadBalancer) Run() {
 		}
 		log.Println("accept a connection")
 		go lb.ReverseProxy(conn)
-		seed++
+
 	}
 }
 
 func (lb *LoadBalancer) ReverseProxy(conn net.Conn) {
 	defer conn.Close()
-	dst, err := net.Dial("tcp", lb.ServersIp[seed%2])
+	lb.Lock()
+	curSeed := atomic.LoadUint32(&lb.Seed) //though is a read op, but still want to get an unique seed
+	serverIPIndex := lb.Seed % len(lb.ServerIps)
+	serverIP := lb.ServerIps[serverIPIndex]
+	lb.Seed++ //do not need to handle overflow, it would simply become 0 if overflow
+	lb.Unlock()
+	dst, err := net.Dial("tcp", serverIP)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	clientReader := bufio.NewReader(conn)
+	lbReader := bufio.NewReader(conn)
 	log.Println("directing")
+	ctx := context.WithCancel(context.Background())
 	go io.Copy(conn, dst)
-	io.Copy(dst, clientReader)
+	io.Copy(dst, lbReader)
 
 }
