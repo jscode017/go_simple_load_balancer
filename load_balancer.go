@@ -1,4 +1,6 @@
-package main
+package go_simple_load_balancer
+
+//package main
 
 import (
 	"bufio"
@@ -46,35 +48,40 @@ func (lb *LoadBalancer) Run() {
 
 		}
 	}()
+	go lb.RunHeartBeat()
+	for { //maybe can listen to some error here
+
+	}
+}
+
+func (lb *LoadBalancer) RunHeartBeat() {
 	ticker := time.NewTicker(lb.HeartBeatDuration)
 	defer ticker.Stop()
-	select {
-	case <-ticker.C:
-		serverIpIndex := 0
-		for serverIpIndex < len(lb.ServerIps) {
-			log.Println("sending heart beat to: ", lb.ServerIps[serverIpIndex])
-			err = lb.SendHeartBeat(serverIpIndex)
-			if err != nil {
-				log.Println("error from server ", lb.ServerIps[serverIpIndex], err)
-				lb.Lock()
-				lb.ServerIps = append(lb.ServerIps[:serverIpIndex], lb.ServerIps[serverIpIndex+1:]...)
-				lb.Unlock()
-			} else {
-				log.Println(lb.ServerIps[serverIpIndex], " is healthy")
-				serverIpIndex++
+	for {
+		select {
+		case <-ticker.C:
+			serverIpIndex := 0
+			for serverIpIndex < len(lb.ServerIps) {
+				log.Println("sending heart beat to: ", lb.ServerIps[serverIpIndex])
+				err := lb.SendHeartBeat(serverIpIndex)
+				if err != nil {
+					log.Println("error from server ", lb.ServerIps[serverIpIndex], err)
+					lb.Lock()
+					lb.ServerIps = append(lb.ServerIps[:serverIpIndex], lb.ServerIps[serverIpIndex+1:]...)
+					lb.Unlock()
+				} else {
+					log.Println(lb.ServerIps[serverIpIndex], " is healthy")
+					serverIpIndex++
+				}
 			}
 		}
 	}
 }
-
 func (lb *LoadBalancer) ReverseProxy(conn net.Conn) {
 	defer conn.Close()
-	lb.Lock()
-	serverIpIndex := lb.Seed % uint32(len(lb.ServerIps)) //though is a read op, but still want to get an unique seed, so use lock instead of rlock
-	serverIP := lb.ServerIps[serverIpIndex]
-	lb.Seed++ //do not need to handle overflow, it would simply become 0 if overflow
-	lb.Unlock()
+	serverIP := lb.RRAlgorithm()
 	dst, err := net.Dial("tcp", serverIP)
+	//TODO : the number of connections
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,6 +92,18 @@ func (lb *LoadBalancer) ReverseProxy(conn net.Conn) {
 	go io.Copy(conn, dst)
 	io.Copy(dst, lbReader)
 
+}
+
+func (lb *LoadBalancer) RRAlgorithm() string {
+	lb.Lock()
+	defer lb.Unlock()
+	if len(lb.ServerIps) == 0 {
+		log.Fatal("no backend servers")
+	}
+	serverIpIndex := lb.Seed % uint32(len(lb.ServerIps)) //though is a read op, but still want to get an unique seed, so use lock instead of rlock
+	serverIP := lb.ServerIps[serverIpIndex]
+	lb.Seed++ //do not need to handle overflow, it would simply become 0 if overflow
+	return serverIP
 }
 
 func (lb *LoadBalancer) SendHeartBeat(index int) error {

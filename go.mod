@@ -1,4 +1,4 @@
-module jason_lb
+module github.com/jscode017/go_simple_load_balancer
 
 go 1.13
 
