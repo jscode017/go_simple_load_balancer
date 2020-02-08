@@ -48,10 +48,16 @@ func (lb *LoadBalancer) Run() {
 
 		}
 	}()
-	go lb.RunHeartBeat()
+	lb.RunHeartBeat()
+	/*ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 	for { //maybe can listen to some error here
+		select {
+		case <-ticker.C:
+			log.Println("hi")
+		}
+	}*/
 
-	}
 }
 
 func (lb *LoadBalancer) RunHeartBeat() {
@@ -89,8 +95,15 @@ func (lb *LoadBalancer) ReverseProxy(conn net.Conn) {
 	lbReader := bufio.NewReader(conn)
 	log.Println("directing")
 	//ctx,cancel := context.WithCancel(context.Background())
-	go io.Copy(conn, dst)
-	io.Copy(dst, lbReader)
+	go io.Copy(conn, dst)  //need to close this when finish
+	io.Copy(dst, lbReader) //need to close this when finish
+	/*ticker := time.NewTicker(2 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			log.Println(conn)
+		}
+	}*/
 
 }
 
