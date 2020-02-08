@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	lb := loadbalancer.NewLoadBalancer([]string{"localhost:8081", "localhost:8082", "localhost:8083"}, 10, 2)
+	lb := loadbalancer.NewLoadBalancer([]string{"localhost:8081", "localhost:8082", "localhost:8083"}, "localhost:8085", 10, 2)
 	go lb.Run()
 	go lb.RunHttp(":8091")
 	r1 := gin.Default()

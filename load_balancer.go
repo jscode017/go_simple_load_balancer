@@ -21,11 +21,11 @@ type LoadBalancer struct {
 	sync.RWMutex
 }
 
-func NewLoadBalancer(serverIPs []string, heartBeatDuration int, serverTimeOut int) *LoadBalancer {
+func NewLoadBalancer(serverIPs []string, loadBalancerIP string, heartBeatDuration int, serverTimeOut int) *LoadBalancer {
 	//serversIp := []string{"localhost:8081", "localhost:8082"}
 	return &LoadBalancer{
 		ServerIps:         serverIPs,
-		Address:           "localhost:8085",
+		Address:           loadBalancerIP,
 		HeartBeatDuration: time.Duration(heartBeatDuration) * time.Second,
 		ServerTimeOut:     time.Duration(serverTimeOut) * time.Second,
 	}
